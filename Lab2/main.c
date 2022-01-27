@@ -85,5 +85,6 @@ int main(void) {
         }
     }
     
+    //Returns 0 if no errors
     return 0;
 }
