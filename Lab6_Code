@@ -47,14 +47,30 @@ __asm__(".intel_syntax noprefix \n\t"
 		".att_syntax \n\t"
 );
 
+uint32_t button_state;
+uint32_t sensor_state;
+uint32_t RED_LED_PIN = 0x10000;
+uint32_t GRN_LED_PIN = 0x20000;
+uint32_t YEL_LED_PIN = 0x40000;
+uint32_t BTN_PIN = 0x0200;
+uint32_t SEN_PIN = 0x0800;
+
+uint32_t PMUX_SEL0 = 0xB0800930;
+uint32_t DR = 0xB0000C00;
+uint32_t DDR = 0xB0000C04;
+uint32_t EXT_DR = 0xB0000C50;
 
 static void pin_mux_setup(void){
 
+
+	//Set all pins to function 0
+
 	__asm__(".intel_syntax noprefix \n\t"
-			//Set all pins to function 0
+
 			"mov edx, 0x00000000 \n\t"
-			"mov [0xB0800930], edx \n\t"
-			"mov [0xB0800934], edx \n\t"
+			"mov edi, PMUX_SEL0 \n\t"
+			"mov [edi], edx \n\t"
+			"mov [edi+4], edx \n\t"
 
 			".att_syntax \n\t");
 	/*
@@ -62,14 +78,10 @@ static void pin_mux_setup(void){
     qm_pmux_select(YEL_LED_PIN_ID, YEL_LED_PIN_FN);
     qm_pmux_select(RED_LED_PIN_ID, RED_LED_PIN_FN);
     qm_pmux_select(GRN_LED_PIN_ID, GRN_LED_PIN_FN);
+    */
     qm_pmux_select(QM_PIN_ID_3, QM_PIN_3_FN_AIN_3);
     qm_pmux_input_en(QM_PIN_ID_3, true);
 }
-*/
-}
-
-uint32_t  button_state = 8;
-uint32_t  sensor_state = 11;
 
 
 //setup_adc
@@ -109,8 +121,14 @@ int main(void) {
     		//Sets pins D11, D12, D13 (GPIOs 16, 17, and 18)
     		//Change bits 17, 18, and 19 & or them
     		//0001 0000 0000 0000 0000 OR 0010 0000 0000 0000 0000 OR 0100 0000 0000 0000 0000
-    		"mov edx, 0x70000 \n\t"
-    		"mov [0xB0000C04], edx \n\t"
+    		"mov edx, RED_LED_PIN \n\t"
+    		"or edx, GRN_LED_PIN \n\t"
+    		"or edx, YEL_LED_PIN \n\t"
+    		"mov edi, DDR \n\t"
+    		"mov [edi], edx \n\t"
+
+//    		"mov edx, 0x70000	\n\t"
+//    		"mov [0xB0000C04], edx	\n\t"
 
     		".att_syntax \n\t");
 
@@ -137,8 +155,7 @@ int main(void) {
         		"lea edi, button_state \n\t "
         		"mov edx, [0xB0000C50] \n\t"
         		"and edx, 0x0200 \n\t"
-        		"and edx, edi \n\t"
-        		"mov [0xB0000C50], edx \n\t"
+        		"mov [edi], edx \n\t"
         		".att_syntax \n\t");
 
 //0b0000_0010_0000_0000
@@ -150,20 +167,22 @@ int main(void) {
         	//Sets pin D12, GPIO 18, 0100 0000 0000 0000 0000 = 0x40000
 
         	__asm__(".intel_syntax noprefix \n\t"
-        			"mov edx, [0xB0000C00] \n\t"
-        			"or  edx, 0x40000 \n\t"
-        			"mov [0xB0000C00], edx \n\t"
+        			"mov edx, DR \n\t"
+        			"or  edx, YEL_LED_PIN \n\t"
+        			"mov edi, DR \n\t"
+        			"mov [edi], edx \n\t"
         			".att_syntax \n\t");
         }
         //If button has not been pressed
         else{
             //Turns yellow LED off
         	__asm__(".intel_syntax noprefix \n\t"
-        			"mov edx, [0xB0000C00] \n\t"
-        			"mov ebx, 0x40000 \n\t"
+        			"mov edx, DR \n\t"
+        			"mov ebx, YEL_LED_PIN \n\t"
         			"not ebx \n\t"
         			"and edx, ebx \n\t"
-        			"mov [0xB0000C00], edx \n\t"
+        			"mov edi, DR \n\t"
+        			"mov [edi], edx \n\t"
         			".att_syntax \n\t");
         }
 
@@ -174,8 +193,7 @@ int main(void) {
                 		"lea edi, sensor_state \n\t "
                 		"mov edx, [0xB0000C50] \n\t"
                 		"and edx, 0x0800 \n\t"
-                		"and edx, edi \n\t"
-                		"mov [0xB0000C50], edx \n\t"
+        				"mov [edi], edx \n\t"
                 		".att_syntax \n\t");
 
         //0000_1000_0000_0000
@@ -187,22 +205,24 @@ int main(void) {
           //  qm_gpio_clear_pin(QM_GPIO_0, GRN_LED_PIN);
         	//turn red pin D13 GPIO16 on and the green pin D11 GPIO17 off
 
-        	//red off
-        	__asm__(".intel_syntax noprefix \n\t"
-        			"mov edx, [0xB0000C00] \n\t"
-        			"or  edx, 0x10000 \n\t"
-        			"mov [0xB0000C00], edx \n\t"
-        			".att_syntax \n\t");
-
-
         	//green on
         	__asm__(".intel_syntax noprefix \n\t"
-        			"mov edx, [0xB0000C00] \n\t"
-        			"mov ebx, 0x20000 \n\t"
-        			"not ebx \n\t"
-        			"and edx, ebx \n\t"
-        			"mov [0xB0000C00], edx \n\t"
-        			".att_syntax \n\t");
+        	        			"mov edi, DR \n\t"
+        	        			"mov ebx, GRN_LED_PIN \n\t"
+        	        			"not ebx \n\t"
+        	        			"and edx, ebx \n\t"
+        	        			"mov edi, DR \n\t"
+        	        			"mov [edi], edx \n\t"
+        	        			".att_syntax \n\t");
+
+
+        	//red off
+        	__asm__(".intel_syntax noprefix \n\t"
+        	        			"mov edi, DR \n\t"
+        	        			"or  edx, RED_LED_PIN \n\t"
+        	        			"mov edi, DR \n\t"
+        	        			"mov [edi], edx \n\t"
+        	        			".att_syntax \n\t");
         }
         //if motion is not detected
         else {
@@ -211,18 +231,20 @@ int main(void) {
 
         	//turn green pin D11 GPIO17 on and red pin D13 GPIO16 off
         	__asm__(".intel_syntax noprefix \n\t"
-        			"mov edx, [0xB0000C00] \n\t"
-        			"or  edx, 0x20000 \n\t"
-        			"mov [0xB0000C00], edx \n\t"
-        			".att_syntax \n\t");
+        	        	        			"mov edi, DR \n\t"
+        	        	        			"or  edx, GRN_LED_PIN \n\t"
+        	        	        			"mov edi, DR \n\t"
+        	        	        			"mov [edi], edx \n\t"
+        	        	        			".att_syntax \n\t");
 
         	__asm__(".intel_syntax noprefix \n\t"
-        			"mov edx, [0xB0000C00] \n\t"
-        			"mov ebx, 0x10000 \n\t"
-        			"not ebx \n\t"
-        			"and edx, ebx \n\t"
-        			"mov [0xB0000C00], edx \n\t"
-        			".att_syntax \n\t");
+        	        	        			"mov edi, DR \n\t"
+        	        	        			"mov ebx, RED_LED_PIN \n\t"
+        	        	        			"not ebx \n\t"
+        	        	        			"and edx, ebx \n\t"
+        	        	        			"mov edi, DR \n\t"
+        	        	        			"mov [edi], edx \n\t"
+        	        	        			".att_syntax \n\t");
         }
 
         qm_adc_convert(QM_ADC_0, &xfer, NULL);
